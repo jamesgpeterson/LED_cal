@@ -15,9 +15,12 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    Settings.cpp
+    Settings.cpp \
+    SerialPortDialog.cpp
 
 HEADERS  += mainwindow.h \
-    Settings.h
+    Settings.h \
+    SerialPortDialog.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    SerialPortDialog.ui

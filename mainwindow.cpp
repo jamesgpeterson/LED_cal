@@ -1,6 +1,7 @@
 #include <QSerialPortInfo>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "SerialPortDialog.h"
 
 
 
@@ -16,7 +17,7 @@ MainWindow::MainWindow(QWidget *parent) :
     //
     // Initialize the comm port list
     //
-    refreshSerialConnections();
+    //refreshSerialConnections();
 
     //
     // initialize the windows with the last setting
@@ -35,18 +36,14 @@ MainWindow::~MainWindow()
 }
 
 
-void MainWindow::refreshSerialConnections()
+void MainWindow::selectSerialPort()
 {
-    ui->comboBox_commPort->clear();
-    QList<QSerialPortInfo> commPortList = QSerialPortInfo::availablePorts();
-    ui->comboBox_commPort->setEnabled(false);
-    ui->comboBox_commPort->addItem(NOT_SELECTED);
-    for (int i=commPortList.size()-1; i>=0; i--)
-    {
-        QSerialPortInfo portInfo = commPortList[i];
-        ui->comboBox_commPort->addItem(portInfo.portName());
-    }
-    ui->comboBox_commPort->setEnabled(true);
+    CSerialPortDialog *dlg = new CSerialPortDialog(this);
+    //dlg->setModal(true);
+    dlg->exec();
+    ui->lineEdit_serialPort->setText(dlg->getSelection());
+
+
 }
 
 void MainWindow::startCalibration()

@@ -6,20 +6,17 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>455</width>
-    <height>227</height>
+    <width>355</width>
+    <height>217</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QGridLayout" name="gridLayout">
-    <item row="0" column="0">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
      <layout class="QFormLayout" name="formLayout">
-      <property name="fieldGrowthPolicy">
-       <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
-      </property>
       <item row="0" column="0">
        <widget class="QLabel" name="label_operator">
         <property name="text">
@@ -62,7 +59,7 @@
       <item row="3" column="0">
        <widget class="QLabel" name="label_commPort">
         <property name="text">
-         <string>Comm Port:</string>
+         <string>Serial Port:</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -72,37 +69,30 @@
       <item row="3" column="1">
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
-         <widget class="QComboBox" name="comboBox_commPort">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
+         <widget class="QLineEdit" name="lineEdit_serialPort"/>
         </item>
         <item>
-         <widget class="QPushButton" name="pushButton_refreshComm">
+         <widget class="QPushButton" name="pushButton_selectPort">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
+            <horstretch>1</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
           <property name="minimumSize">
            <size>
-            <width>50</width>
+            <width>60</width>
             <height>0</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
-            <width>50</width>
+            <width>60</width>
             <height>16777215</height>
            </size>
           </property>
           <property name="text">
-           <string>Refresh</string>
+           <string>select...</string>
           </property>
          </widget>
         </item>
@@ -110,7 +100,7 @@
       </item>
      </layout>
     </item>
-    <item row="1" column="0">
+    <item>
      <widget class="QPushButton" name="pushButton">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
@@ -136,6 +126,19 @@
       </property>
      </widget>
     </item>
+    <item>
+     <spacer name="verticalSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>20</width>
+        <height>40</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menuBar">
@@ -143,7 +146,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>455</width>
+     <width>355</width>
      <height>21</height>
     </rect>
    </property>
@@ -162,10 +165,10 @@
  <resources/>
  <connections>
   <connection>
-   <sender>pushButton_refreshComm</sender>
+   <sender>pushButton_selectPort</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
-   <slot>refreshSerialConnections()</slot>
+   <slot>selectSerialPort()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>393</x>
@@ -195,7 +198,7 @@
   </connection>
  </connections>
  <slots>
-  <slot>refreshSerialConnections()</slot>
+  <slot>selectSerialPort()</slot>
   <slot>startCalibration()</slot>
  </slots>
 </ui>

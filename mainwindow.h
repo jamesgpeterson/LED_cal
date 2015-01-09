@@ -22,7 +22,7 @@ public:
     void saveSettings();
 
 public slots:
-    void refreshSerialConnections();
+    void selectSerialPort();
     void startCalibration();
     
 private:

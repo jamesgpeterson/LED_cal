@@ -18,7 +18,7 @@ public:
     QString m_commPort;
 
 private:
-    QSettings  *m_settings;
+    QSettings  *m_qSettings;
 };
 
 

@@ -34,7 +34,9 @@ CSerialPortDialog::CSerialPortDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::CSerialPortDialog)
 {
+
     ui->setupUi(this);
+    ui->label_Instructions->setWordWrap(true);
     refreshSerialPortList();
 }
 
@@ -53,6 +55,7 @@ CSerialPortDialog::~CSerialPortDialog()
     delete ui;
 }
 
+
 /*!
  * @brief initializes the Combo-Box with the available comm ports
  *
@@ -65,15 +68,24 @@ CSerialPortDialog::~CSerialPortDialog()
 */
 void CSerialPortDialog::refreshSerialPortList()
 {
+    QString currentSelection = getSelection();
+    int currentIndex = 0;
+
     ui->comboBox_serialPorts->clear();
     QList<QSerialPortInfo> commPortList = QSerialPortInfo::availablePorts();
     ui->comboBox_serialPorts->setEnabled(false);
     ui->comboBox_serialPorts->addItem("<select>");
-    for (int i=commPortList.size()-1; i>=0; i--)
+    for (int i=0; i<commPortList.size(); i++)
     {
         QSerialPortInfo portInfo = commPortList[i];
         ui->comboBox_serialPorts->addItem(portInfo.portName());
+        if (currentSelection == portInfo.portName())
+        {
+            currentIndex = i + 1;
+        }
     }
+
+    ui->comboBox_serialPorts->setCurrentIndex(currentIndex);
     ui->comboBox_serialPorts->setEnabled(true);
 }
 

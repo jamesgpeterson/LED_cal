@@ -18,9 +18,10 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QString>
 #include "Settings.h"
 #include "SerialBuffer.h"
+
+#define VERSION_STRING "1.0"
 
 
 namespace Ui

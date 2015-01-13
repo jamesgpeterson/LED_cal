@@ -14,7 +14,6 @@
  *
 */
 
-#include <QSerialPortInfo>
 #include <QMessageBox>
 #include <QFileInfo>
 #include "mainwindow.h"
@@ -43,14 +42,20 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     //
-    // Initialize the comm port list
+    // Set the window title.
     //
-    //refreshSerialConnections();
+    QString title = QFileInfo( QCoreApplication::applicationFilePath() ).baseName();
+    title.append(" (");
+    title.append(VERSION_STRING);
+    title.append(")");
+    this->setWindowTitle(title);
+
 
     //
     // initialize the windows with the last setting
     //
     ui->lineEdit_logFile->setText(m_settings.m_logFile);
+    ui->lineEdit_serialPort->setText(m_settings.m_commPort);
 }
 
 
@@ -112,12 +117,29 @@ void MainWindow::startCalibration()
     //
     // Check that the operator field is filled in.
     //
+    if (ui->lineEdit_operator->text().isEmpty())
+    {
+        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
+        QString msg = "An operator name must be entered.";
+        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        ui->lineEdit_operator->setFocus();
+        return;
+    }
 
     //
     // Check that the serial number field was filled in.
+    //
+    if (ui->lineEdit_serialNumber->text().isEmpty())
+    {
+        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
+        QString msg = "A serial number name must be entered.";
+        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        ui->lineEdit_serialNumber->setFocus();
+        return;
+    }
 
     //
-    // Open the Serial Port.
+    // Check that the COM port field was filled in.
     //
     QString portName = ui->lineEdit_serialPort->text();
     if (portName.isEmpty())
@@ -125,9 +147,13 @@ void MainWindow::startCalibration()
         QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
         QString msg = "A serial port must be specified/selected.";
         QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        ui->lineEdit_serialPort->setFocus();
         return;
     }
 
+    //
+    // Open the COM port
+    //
     if (!m_serialBuffer.openPort(portName))
     {
         QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
@@ -135,6 +161,7 @@ void MainWindow::startCalibration()
         QMessageBox::warning(this, title, msg, QMessageBox::Ok);
         return;
     }
+
 
     //
     // Check that the controller is running

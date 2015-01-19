@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>355</width>
-    <height>223</height>
+    <width>500</width>
+    <height>459</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -101,6 +101,132 @@
      </layout>
     </item>
     <item>
+     <widget class="Line" name="line_1">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="groupBox">
+      <property name="title">
+       <string>Firmware Version</string>
+      </property>
+      <layout class="QFormLayout" name="formLayout_2">
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_ver_ARM">
+         <property name="text">
+          <string>ARM:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="lineEdit_ver_ARM">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_ver_DSP">
+         <property name="text">
+          <string>DSP:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="lineEdit_ver_DSP">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="label_ver_FPGA">
+         <property name="text">
+          <string>FPGA:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="lineEdit_ver_FPGA">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+      <zorder>lineEdit_ver_DSP</zorder>
+      <zorder>label_ver_ARM</zorder>
+      <zorder>lineEdit_ver_ARM</zorder>
+      <zorder>lineEdit_ver_FPGA</zorder>
+      <zorder>label_ver_FPGA</zorder>
+      <zorder>lineEdit_ver_ARM</zorder>
+      <zorder>lineEdit_ver_DSP</zorder>
+      <zorder>lineEdit_ver_FPGA</zorder>
+      <zorder>label_ver_ARM</zorder>
+      <zorder>label_ver_FPGA</zorder>
+      <zorder>label_ver_DSP</zorder>
+     </widget>
+    </item>
+    <item>
+     <widget class="Line" name="line_2">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="Line" name="line_3">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="groupBox_2">
+      <property name="title">
+       <string>Initial Calibration Values</string>
+      </property>
+      <layout class="QFormLayout" name="formLayout_3">
+       <item row="0" column="0">
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>LED 1:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QLineEdit" name="lineEdit_LED1_low"/>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="lineEdit_LED1_high"/>
+         </item>
+        </layout>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_2">
+         <property name="text">
+          <string>LED 2:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <item>
+          <widget class="QLineEdit" name="lineEdit_LED2_low"/>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="lineEdit_LED2_high"/>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
      <spacer name="verticalSpacer">
       <property name="orientation">
        <enum>Qt::Vertical</enum>
@@ -108,17 +234,10 @@
       <property name="sizeHint" stdset="0">
        <size>
         <width>20</width>
-        <height>40</height>
+        <height>0</height>
        </size>
       </property>
      </spacer>
-    </item>
-    <item>
-     <widget class="Line" name="line">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
-      </property>
-     </widget>
     </item>
     <item>
      <widget class="QPushButton" name="pushButton">
@@ -147,7 +266,7 @@
      </widget>
     </item>
     <item>
-     <widget class="Line" name="line_2">
+     <widget class="Line" name="line_4">
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
@@ -160,7 +279,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>355</width>
+     <width>500</width>
      <height>21</height>
     </rect>
    </property>

@@ -21,7 +21,7 @@
 #include "Settings.h"
 #include "SerialBuffer.h"
 
-#define VERSION_STRING "1.0"
+#define VERSION_STRING "0.2"
 
 
 namespace Ui

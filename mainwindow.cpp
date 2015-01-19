@@ -16,10 +16,10 @@
 
 #include <QMessageBox>
 #include <QFileInfo>
+#include <QDir>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "SerialPortDialog.h"
-
 
 
 #define NOT_SELECTED "not selected"
@@ -162,18 +162,103 @@ void MainWindow::startCalibration()
         return;
     }
 
-
     //
     // Check that the controller is running
     //
+    if (m_serialBuffer.checkForEcho() == false)
+    {
+        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
+        QString msg = "Communication with the controller could not be established.\n\nPort opend successfully.\nCommands are not echoed.";
+        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        return;
+    }
 
     //
-    // Check that the scope is connected
+    // Disable excessive echoing of commands
     //
+    m_serialBuffer.writeLine("disable_events=1");
+
+    //
+    // Check version of the firmware
+    //
+    int i;
+    m_serialBuffer.writeLine("version");
+    QString ver_FPGA = m_serialBuffer.readString();
+    i = ver_FPGA.indexOf("FPGA: ");
+    ver_FPGA.remove(0, i+6);
+    QString ver_ARM  = m_serialBuffer.readString();
+    i = ver_ARM.indexOf("ARM: ");
+    ver_ARM.remove(0, i+5);
+    QString ver_DSP  = m_serialBuffer.readString();
+    i = ver_DSP.indexOf("DSP: ");
+    ver_DSP.remove(0, i+5);
+    ui->lineEdit_ver_ARM->setText(ver_ARM);
+    ui->lineEdit_ver_DSP->setText(ver_DSP);
+    ui->lineEdit_ver_FPGA->setText(ver_FPGA);
+    qApp->processEvents();
 
     //
     // Get the current calibration values
     //
+    m_serialBuffer.writeLine("led_cal");
+    QString calString = m_serialBuffer.readString();
+    QString tmpString;
+
+    i = calString.indexOf("low=");
+    calString.remove(0, i+4);
+    tmpString = calString;
+    i = tmpString.indexOf(" ");
+    tmpString.truncate(i);
+    int lowCal1 = tmpString.toInt();
+
+    i = calString.indexOf("high=");
+    calString.remove(0, i+5);
+    tmpString = calString;
+    i = tmpString.indexOf(")");
+    tmpString.truncate(i);
+    int highCal1 = tmpString.toInt();
+
+    i = calString.indexOf("low=");
+    calString.remove(0, i+4);
+    tmpString = calString;
+    i = tmpString.indexOf(" ");
+    tmpString.truncate(i);
+    int lowCal2 = tmpString.toInt();
+
+    i = calString.indexOf("high=");
+    calString.remove(0, i+5);
+    tmpString = calString;
+    i = tmpString.indexOf(")");
+    tmpString.truncate(i);
+    int highCal2 = tmpString.toInt();
+
+    QString numberString;
+    numberString.setNum(lowCal1);
+    ui->lineEdit_LED1_low->setText(numberString);
+    numberString.setNum(lowCal2);
+    ui->lineEdit_LED2_low->setText(numberString);
+    numberString.setNum(highCal1);
+    ui->lineEdit_LED1_high->setText(numberString);
+    numberString.setNum(highCal2);
+    ui->lineEdit_LED2_high->setText(numberString);
+    qApp->processEvents();
+
+
+    //
+    // Check that the scope is connected
+    //
+    m_serialBuffer.writeLine("disable_events=1");
+    m_serialBuffer.writeLine("em_style=1");
+    m_serialBuffer.writeLine("em=-1");
+    QString em_string = m_serialBuffer.readString();
+    if (em_string.isEmpty())
+    {
+        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
+        QString msg = "Scope not detected.\n\nEnsure that the scope is connected and installed in the calibration fixture.";
+        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        ui->lineEdit_serialNumber->setFocus();
+        return;
+    }
 
 }
 

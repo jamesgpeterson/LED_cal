@@ -20,6 +20,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "SerialPortDialog.h"
+#include "Snooze.h"
 
 
 #define NOT_SELECTED "not selected"
@@ -56,6 +57,7 @@ MainWindow::MainWindow(QWidget *parent) :
     //
     ui->lineEdit_logFile->setText(m_settings.m_logFile);
     ui->lineEdit_serialPort->setText(m_settings.m_commPort);
+
 }
 
 
@@ -114,6 +116,8 @@ void MainWindow::selectSerialPort()
 */
 void MainWindow::startCalibration()
 {
+    ui->pushButton->setEnabled(false);
+
     //
     // Check that the operator field is filled in.
     //
@@ -123,6 +127,7 @@ void MainWindow::startCalibration()
         QString msg = "An operator name must be entered.";
         QMessageBox::warning(this, title, msg, QMessageBox::Ok);
         ui->lineEdit_operator->setFocus();
+        ui->pushButton->setEnabled(true);
         return;
     }
 
@@ -135,6 +140,7 @@ void MainWindow::startCalibration()
         QString msg = "A serial number name must be entered.";
         QMessageBox::warning(this, title, msg, QMessageBox::Ok);
         ui->lineEdit_serialNumber->setFocus();
+        ui->pushButton->setEnabled(true);
         return;
     }
 
@@ -148,6 +154,7 @@ void MainWindow::startCalibration()
         QString msg = "A serial port must be specified/selected.";
         QMessageBox::warning(this, title, msg, QMessageBox::Ok);
         ui->lineEdit_serialPort->setFocus();
+        ui->pushButton->setEnabled(true);
         return;
     }
 
@@ -159,6 +166,7 @@ void MainWindow::startCalibration()
         QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
         QString msg = "The specified serial port could not be opened.";
         QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        ui->pushButton->setEnabled(true);
         return;
     }
 
@@ -170,6 +178,7 @@ void MainWindow::startCalibration()
         QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
         QString msg = "Communication with the controller could not be established.\n\nPort opend successfully.\nCommands are not echoed.";
         QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        ui->pushButton->setEnabled(true);
         return;
     }
 
@@ -186,12 +195,19 @@ void MainWindow::startCalibration()
     QString ver_FPGA = m_serialBuffer.readString();
     i = ver_FPGA.indexOf("FPGA: ");
     ver_FPGA.remove(0, i+6);
+
     QString ver_ARM  = m_serialBuffer.readString();
     i = ver_ARM.indexOf("ARM: ");
     ver_ARM.remove(0, i+5);
+    i = ver_ARM.indexOf(" ");
+    ver_ARM.truncate(i);
+
     QString ver_DSP  = m_serialBuffer.readString();
     i = ver_DSP.indexOf("DSP: ");
     ver_DSP.remove(0, i+5);
+    i = ver_DSP.indexOf(" ");
+    ver_DSP.truncate(i);
+
     ui->lineEdit_ver_ARM->setText(ver_ARM);
     ui->lineEdit_ver_DSP->setText(ver_DSP);
     ui->lineEdit_ver_FPGA->setText(ver_FPGA);
@@ -259,7 +275,217 @@ void MainWindow::startCalibration()
         ui->lineEdit_serialNumber->setFocus();
         return;
     }
+    m_serialBuffer.writeLine("em_style=0");
 
+    //
+    // Update the current exposure
+    //
+    updateExposure();
+
+    //
+    // Update the current and voltage
+    //
+    updateCurrentAndVoltage();
+    updateDACValues();
+
+    //
+    // Find the low-end calibration for LED 1
+    //
+    findHighCalibration();
+    findLowCalibration();
+
+
+    ui->pushButton->setEnabled(true);
+}
+
+
+void MainWindow::updateExposure()
+{
+    m_serialBuffer.writeLine("em=-1");
+    int zones[25];
+    for (int i=0; i<25; i++)
+    {
+        zones[i] = -1;
+    }
+
+    // Dump the first line
+    m_serialBuffer.readString();
+    for (int i=0; i<5; i++)
+    {
+        QString response = m_serialBuffer.readString();
+        QStringList list = response.split(QRegExp("\\W+"), QString::SkipEmptyParts);
+        if (list.size() != 5)
+        {
+            QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
+            QString msg = "Unexpected response:\n";
+            msg.append(response);
+            QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+            ui->lineEdit_serialNumber->setFocus();
+            return;
+        }
+        for (int j=0; j<list.size(); j++)
+        {
+            zones[i*5+j] = list[j].toInt();
+        }
+    }
+
+    int z = 0;
+    QString numStr;
+    ui->lineEdit_em_11->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_12->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_13->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_14->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_15->setText(numStr.setNum(zones[z++]));
+
+    ui->lineEdit_em_21->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_22->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_23->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_24->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_25->setText(numStr.setNum(zones[z++]));
+
+    ui->lineEdit_em_31->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_32->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_33->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_34->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_35->setText(numStr.setNum(zones[z++]));
+
+    ui->lineEdit_em_41->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_42->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_43->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_44->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_45->setText(numStr.setNum(zones[z++]));
+
+    ui->lineEdit_em_51->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_52->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_53->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_54->setText(numStr.setNum(zones[z++]));
+    ui->lineEdit_em_55->setText(numStr.setNum(zones[z++]));
+    qApp->processEvents();
+
+    m_totalExposure = 0;
+    for (int i=0; i<25; i++)
+    {
+        m_totalExposure += zones[i];
+    }
+}
+
+void MainWindow::updateCurrentAndVoltage()
+{
+    m_serialBuffer.writeLine("ledvi");
+    QString response = m_serialBuffer.readString();
+    double V1, V2, I1, I2, index;
+    QString tmpStr;
+
+    tmpStr = response;
+    index = tmpStr.indexOf("V1:");
+    tmpStr.remove(0, index+3);
+    tmpStr.truncate(tmpStr.indexOf(","));
+    V1 = tmpStr.toDouble();
+
+    tmpStr = response;
+    index = tmpStr.indexOf("I1:");
+    tmpStr.remove(0, index+3);
+    tmpStr.truncate(tmpStr.indexOf(","));
+    I1 = tmpStr.toDouble();
+
+    tmpStr = response;
+    index = tmpStr.indexOf("V2:");
+    tmpStr.remove(0, index+3);
+    tmpStr.truncate(tmpStr.indexOf(","));
+    V2 = tmpStr.toDouble();
+
+    tmpStr = response;
+    index = tmpStr.indexOf("I2:");
+    tmpStr.remove(0, index+3);
+    I2 = tmpStr.toDouble();
+
+    QString numStr;
+    ui->lineEdit_volts1->setText(numStr.setNum(V1));
+    ui->lineEdit_volts2->setText(numStr.setNum(V2));
+    ui->lineEdit_amps1->setText(numStr.setNum(I1));
+    ui->lineEdit_amps2->setText(numStr.setNum(I2));
+    qApp->processEvents();
+}
+
+void MainWindow::updateDACValues()
+{
+    m_serialBuffer.writeLine("led_dac");
+    QString response = m_serialBuffer.readString();
+    double X1, X2, index;
+    QString tmpStr;
+
+    tmpStr = response;
+    index = tmpStr.indexOf("led1=");
+    tmpStr.remove(0, index+5);
+    tmpStr.truncate(tmpStr.indexOf(","));
+    X1 = tmpStr.toDouble();
+
+    tmpStr = response;
+    index = tmpStr.indexOf("led2=");
+    tmpStr.remove(0, index+5);
+    X2 = tmpStr.toDouble();
+
+    QString numStr;
+    ui->lineEdit_dac1->setText(numStr.setNum(X1));
+    ui->lineEdit_dac2->setText(numStr.setNum(X2));
+    qApp->processEvents();
+}
+
+void MainWindow::setDACValues(int dac1, int dac2)
+{
+    QString command = QString("led_dac=%1,%2").arg(dac1).arg(dac2);
+    m_serialBuffer.writeLine(command.toLocal8Bit().data());
+    updateDACValues();
+#if 0
+    m_serialBuffer.writeLine("led_dac");
+    QString response = m_serialBuffer.readString();
+    double X1, X2, index;
+    QString tmpStr;
+
+    tmpStr = response;
+    index = tmpStr.indexOf("led1=");
+    tmpStr.remove(0, index+5);
+    tmpStr.truncate(tmpStr.indexOf(","));
+    X1 = tmpStr.toDouble();
+
+    tmpStr = response;
+    index = tmpStr.indexOf("led2=");
+    tmpStr.remove(0, index+5);
+    X2 = tmpStr.toDouble();
+
+    QString numStr;
+    ui->lineEdit_dac1->setText(numStr.setNum(X1));
+    ui->lineEdit_dac2->setText(numStr.setNum(X2));
+    qApp->processEvents();
+#endif
+}
+
+
+void MainWindow::findLowCalibration()
+{
+    int X1 = 0;
+    int X2 = 5000;
+
+    while ( X1 < (X2-1) )
+    {
+        int M = (X1+X2)/2;
+        setDACValues(M, 0);
+        snooze(60);
+        updateExposure();
+        if (m_totalExposure == 0)
+        {
+            X1 = M;
+        }
+        else
+        {
+            X2 = M;
+        }
+    }
+
+}
+
+void MainWindow::findHighCalibration()
+{
 }
 
 

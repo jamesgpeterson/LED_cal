@@ -21,7 +21,7 @@
 #include "Settings.h"
 #include "SerialBuffer.h"
 
-#define VERSION_STRING "0.2"
+#define VERSION_STRING "0.3"
 
 
 namespace Ui
@@ -36,8 +36,16 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
+
+private:
     void loadSettings();
     void saveSettings();
+    void updateExposure();
+    void updateCurrentAndVoltage();
+    void updateDACValues();
+    void setDACValues(int dac1, int dac2);
+    void findHighCalibration();
+    void findLowCalibration();
 
 public slots:
     void selectSerialPort();
@@ -48,6 +56,8 @@ private:
 
     CSettings     m_settings;
     CSerialBuffer m_serialBuffer;
+
+    int           m_totalExposure;
 };
 
 #endif // MAINWINDOW_H

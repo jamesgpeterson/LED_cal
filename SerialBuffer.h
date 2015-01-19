@@ -20,7 +20,9 @@ public:
 
 
 private:
+#if 0
     void snooze(int ms);
+#endif
 
 private:
     QSerialPort   *m_serialPort;

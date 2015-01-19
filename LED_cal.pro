@@ -17,12 +17,14 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     Settings.cpp \
     SerialPortDialog.cpp \
-    SerialBuffer.cpp
+    SerialBuffer.cpp \
+    Snooze.cpp
 
 HEADERS  += mainwindow.h \
     Settings.h \
     SerialPortDialog.h \
-    SerialBuffer.h
+    SerialBuffer.h \
+    Snooze.h
 
 FORMS    += mainwindow.ui \
     SerialPortDialog.ui

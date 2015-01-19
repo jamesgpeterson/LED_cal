@@ -1,7 +1,10 @@
 #include <QTimer>
 #include <QEventLoop>
 #include <QCoreApplication>
+#include <QMessageBox>
 #include "SerialBuffer.h"
+#include "Snooze.h"
+
 
 CSerialBuffer::CSerialBuffer()
 {
@@ -67,6 +70,7 @@ bool CSerialBuffer::openPort(QString portName)
     return(true);
 }
 
+#if 0
 /*!
  * @brief sleeps for specified milliseconds
  *
@@ -79,6 +83,7 @@ void CSerialBuffer::snooze(int ms)
     QTimer::singleShot(ms, &loop, SLOT(quit()));
     loop.exec();
 }
+#endif
 
 
 void CSerialBuffer::flush()
@@ -87,9 +92,15 @@ void CSerialBuffer::flush()
     const int bufferSize = 1024;
     char buffer[bufferSize];
     snooze(1);
-    while (readLine(buffer, bufferSize, 1))
+    qApp->processEvents();
+    int ticks = 0;
+    while (ticks < 10)
     {
-        snooze(1);
+        if (readLine(buffer, bufferSize, 1) == 0)
+        {
+            snooze(1);
+            ticks++;
+        }
     }
 }
 
@@ -159,7 +170,7 @@ bool CSerialBuffer::writeLine(const char *command)
     //
     flush();
     //snooze(1);
-   // m_serialPort->clear(QSerialPort::Input);
+    // m_serialPort->clear(QSerialPort::Input);
 
     //
     // Write the command.
@@ -186,6 +197,13 @@ bool CSerialBuffer::writeLine(const char *command)
         readLine(buffer, commandLength+100, m_timeoutMS);
         if (strncmp(command, buffer, commandLength) != 0)
         {
+            QString title = "Debug";
+            QString msg = "Unexpected response:\n";
+            msg.append(buffer);
+            msg.append("\nexpected:\n");
+            msg.append(command);
+            QMessageBox::warning(NULL, title, msg, QMessageBox::Ok);
+
             delete buffer;
             return(false);
         }

@@ -21,7 +21,7 @@
 #include "Settings.h"
 #include "SerialBuffer.h"
 
-#define VERSION_STRING "0.3"
+#define VERSION_STRING "0.4"
 
 
 namespace Ui
@@ -44,8 +44,8 @@ private:
     void updateCurrentAndVoltage();
     void updateDACValues();
     void setDACValues(int dac1, int dac2);
-    void findHighCalibration();
-    void findLowCalibration();
+    void findCalibration();
+    void saveCalibration();
 
 public slots:
     void selectSerialPort();
@@ -58,6 +58,14 @@ private:
     CSerialBuffer m_serialBuffer;
 
     int           m_totalExposure;
+    double        m_I1;
+    double        m_I2;
+    int           m_calibrationLow_1;
+    int           m_calibrationHigh_1;
+    int           m_calibrationLow_2;
+    int           m_calibrationHigh_2;
+    int           m_dac1;
+    int           m_dac2;
 };
 
 #endif // MAINWINDOW_H

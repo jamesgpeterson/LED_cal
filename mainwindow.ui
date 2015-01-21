@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>682</width>
-    <height>456</height>
+    <height>461</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -207,13 +207,6 @@
             </widget>
            </item>
           </layout>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_LED2">
-           <property name="text">
-            <string>LED 2:</string>
-           </property>
-          </widget>
          </item>
          <item row="1" column="1">
           <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -998,7 +991,7 @@
      </widget>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_5">
+     <layout class="QHBoxLayout" name="horizontalLayout_8">
       <item>
        <widget class="QPushButton" name="pushButton">
         <property name="sizePolicy">
@@ -1026,6 +1019,98 @@
        </widget>
       </item>
       <item>
+       <widget class="QGroupBox" name="groupBox_5">
+        <property name="maximumSize">
+         <size>
+          <width>150</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="title">
+         <string>New Calibration Values</string>
+        </property>
+        <layout class="QFormLayout" name="formLayout_4">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_LED1_2">
+           <property name="text">
+            <string>LED 1:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <layout class="QHBoxLayout" name="horizontalLayout_5">
+           <item>
+            <widget class="QLineEdit" name="lineEdit_LED1_low_final">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>45</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="lineEdit_LED1_high_final">
+             <property name="maximumSize">
+              <size>
+               <width>45</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_LED2">
+           <property name="text">
+            <string>LED 2:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <layout class="QHBoxLayout" name="horizontalLayout_7">
+           <item>
+            <widget class="QLineEdit" name="lineEdit_LED2_low_final">
+             <property name="maximumSize">
+              <size>
+               <width>45</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="lineEdit_LED2_high_final">
+             <property name="maximumSize">
+              <size>
+               <width>45</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <spacer name="horizontalSpacer">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
@@ -1048,6 +1133,12 @@
      </widget>
     </item>
    </layout>
+   <zorder>line_1</zorder>
+   <zorder>line_5</zorder>
+   <zorder>line_4</zorder>
+   <zorder>lineEdit_LED1_high</zorder>
+   <zorder>lineEdit_LED1_high</zorder>
+   <zorder>groupBox_5</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">

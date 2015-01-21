@@ -58,6 +58,11 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->lineEdit_logFile->setText(m_settings.m_logFile);
     ui->lineEdit_serialPort->setText(m_settings.m_commPort);
 
+    //
+    // initial DAC values
+    //
+    m_dac1 = 0;
+    m_dac2 = 0;
 }
 
 
@@ -186,6 +191,14 @@ void MainWindow::startCalibration()
     // Disable excessive echoing of commands
     //
     m_serialBuffer.writeLine("disable_events=1");
+    m_serialBuffer.readString();
+#if 0
+    m_serialBuffer.writeLine("gamma=1.0");
+    m_serialBuffer.readString();
+    m_serialBuffer.writeLine("cc_reset");
+    m_serialBuffer.readString();
+#endif
+
 
     //
     // Check version of the firmware
@@ -273,6 +286,7 @@ void MainWindow::startCalibration()
         QString msg = "Scope not detected.\n\nEnsure that the scope is connected and installed in the calibration fixture.";
         QMessageBox::warning(this, title, msg, QMessageBox::Ok);
         ui->lineEdit_serialNumber->setFocus();
+        ui->pushButton->setEnabled(true);
         return;
     }
     m_serialBuffer.writeLine("em_style=0");
@@ -289,10 +303,20 @@ void MainWindow::startCalibration()
     updateDACValues();
 
     //
-    // Find the low-end calibration for LED 1
+    // Find the new calibration values
     //
-    findHighCalibration();
-    findLowCalibration();
+    findCalibration();
+
+    //
+    // Set the LEDs to 0
+    //
+    m_serialBuffer.writeLine("em_style=1");
+
+    //
+    // Save the calibration
+    //
+    saveCalibration();
+
 
 
     ui->pushButton->setEnabled(true);
@@ -360,20 +384,21 @@ void MainWindow::updateExposure()
     ui->lineEdit_em_53->setText(numStr.setNum(zones[z++]));
     ui->lineEdit_em_54->setText(numStr.setNum(zones[z++]));
     ui->lineEdit_em_55->setText(numStr.setNum(zones[z++]));
-    qApp->processEvents();
 
     m_totalExposure = 0;
     for (int i=0; i<25; i++)
     {
         m_totalExposure += zones[i];
     }
+
+    qApp->processEvents();
 }
 
 void MainWindow::updateCurrentAndVoltage()
 {
     m_serialBuffer.writeLine("ledvi");
     QString response = m_serialBuffer.readString();
-    double V1, V2, I1, I2, index;
+    double V1, V2, index;
     QString tmpStr;
 
     tmpStr = response;
@@ -386,7 +411,7 @@ void MainWindow::updateCurrentAndVoltage()
     index = tmpStr.indexOf("I1:");
     tmpStr.remove(0, index+3);
     tmpStr.truncate(tmpStr.indexOf(","));
-    I1 = tmpStr.toDouble();
+    m_I1 = tmpStr.toDouble();
 
     tmpStr = response;
     index = tmpStr.indexOf("V2:");
@@ -397,13 +422,13 @@ void MainWindow::updateCurrentAndVoltage()
     tmpStr = response;
     index = tmpStr.indexOf("I2:");
     tmpStr.remove(0, index+3);
-    I2 = tmpStr.toDouble();
+    m_I2 = tmpStr.toDouble();
 
     QString numStr;
     ui->lineEdit_volts1->setText(numStr.setNum(V1));
     ui->lineEdit_volts2->setText(numStr.setNum(V2));
-    ui->lineEdit_amps1->setText(numStr.setNum(I1));
-    ui->lineEdit_amps2->setText(numStr.setNum(I2));
+    ui->lineEdit_amps1->setText(numStr.setNum(m_I1));
+    ui->lineEdit_amps2->setText(numStr.setNum(m_I2));
     qApp->processEvents();
 }
 
@@ -428,50 +453,74 @@ void MainWindow::updateDACValues()
     QString numStr;
     ui->lineEdit_dac1->setText(numStr.setNum(X1));
     ui->lineEdit_dac2->setText(numStr.setNum(X2));
+
     qApp->processEvents();
 }
 
 void MainWindow::setDACValues(int dac1, int dac2)
 {
+    //
+    // Jump by no more than 100 to give the power regulator a break
+    //
+#if 0
+    int delta1 = dac1 - m_dac1;
+    int delta2 = dac2 - m_dac2;
+    int x1 = m_dac1;
+    int x2 = m_dac2;
+    const int c_maxDelta = 1000;
+    while ( (delta1 != 0) || (delta2 != 0) )
+    {
+        //int d1 = (delta1 > c_maxDelta) ? c_maxDelta : ((delta1 < -c_maxDelta) ? -c_maxDelta : delta1);
+        //int d2 = (delta2 > c_maxDelta) ? c_maxDelta : ((delta2 < -c_maxDelta) ? -c_maxDelta : delta2);
+        int d1 = (delta1 > c_maxDelta) ? c_maxDelta : delta1;
+        int d2 = (delta2 > c_maxDelta) ? c_maxDelta : delta2;
+
+        x1 += d1;
+        x2 += d2;
+        delta1 -= d1;
+        delta2 -= d2;
+        QString command = QString("led_dac=%1,%2").arg(x1).arg(x1);
+        m_serialBuffer.writeLine(command.toLocal8Bit().data());
+        updateDACValues();
+        updateCurrentAndVoltage();
+        updateExposure();
+        //snooze(1);
+    }
+ #endif
     QString command = QString("led_dac=%1,%2").arg(dac1).arg(dac2);
     m_serialBuffer.writeLine(command.toLocal8Bit().data());
+    m_serialBuffer.readString();
+
+    snooze(100);
     updateDACValues();
-#if 0
-    m_serialBuffer.writeLine("led_dac");
-    QString response = m_serialBuffer.readString();
-    double X1, X2, index;
-    QString tmpStr;
+    updateCurrentAndVoltage();
+    updateExposure();
 
-    tmpStr = response;
-    index = tmpStr.indexOf("led1=");
-    tmpStr.remove(0, index+5);
-    tmpStr.truncate(tmpStr.indexOf(","));
-    X1 = tmpStr.toDouble();
+    m_dac1 = dac1;
+    m_dac2 = dac2;
 
-    tmpStr = response;
-    index = tmpStr.indexOf("led2=");
-    tmpStr.remove(0, index+5);
-    X2 = tmpStr.toDouble();
-
-    QString numStr;
-    ui->lineEdit_dac1->setText(numStr.setNum(X1));
-    ui->lineEdit_dac2->setText(numStr.setNum(X2));
-    qApp->processEvents();
-#endif
 }
 
 
-void MainWindow::findLowCalibration()
+void MainWindow::findCalibration()
 {
-    int X1 = 0;
-    int X2 = 5000;
+    ui->lineEdit_LED1_low_final->setText("");
+    ui->lineEdit_LED2_low_final->setText("");
+    ui->lineEdit_LED1_high_final->setText("");
+    ui->lineEdit_LED2_high_final->setText("");
 
+    int X1, X2, M;
+    QString numStr;
+
+    X1 = 0;
+    X2 = 16384;
+    M = (X1+X2)/2;
+    setDACValues(M, 0);
+    snooze(100);
     while ( X1 < (X2-1) )
     {
-        int M = (X1+X2)/2;
+        M = (X1+X2)/2;
         setDACValues(M, 0);
-        snooze(60);
-        updateExposure();
         if (m_totalExposure == 0)
         {
             X1 = M;
@@ -481,12 +530,95 @@ void MainWindow::findLowCalibration()
             X2 = M;
         }
     }
+    m_calibrationLow_1 = X1;
+    ui->lineEdit_LED1_low_final->setText(numStr.setNum(m_calibrationLow_1));
 
+    X1 = 0;
+    X2 = 16384;
+    M = (X1+X2)/2;
+    setDACValues(0, M);
+    snooze(100);
+    while ( X1 < (X2-1) )
+    {
+        M = (X1+X2)/2;
+        setDACValues(0, M);
+        if (m_totalExposure == 0)
+        {
+            X1 = M;
+        }
+        else
+        {
+            X2 = M;
+        }
+    }
+    m_calibrationLow_2 = X1;
+    ui->lineEdit_LED2_low_final->setText(numStr.setNum(m_calibrationLow_2));
+
+    X1 = 48152;
+    X2 = 65535;
+    M = (X1+X2)/2;
+    setDACValues(X1, 0);
+    snooze(100);
+    while ( X1 < (X2-1) )
+    {
+        M = (X1+X2)/2;
+        setDACValues(M, 0);
+        snooze(200);
+        if (m_I1 <= 5.25)
+        {
+            X1 = M;
+        }
+        else
+        {
+            X2 = M;
+        }
+    }
+    m_calibrationHigh_1 = X1;
+    ui->lineEdit_LED1_high_final->setText(numStr.setNum(m_calibrationHigh_1));
+
+    X1 = 48152;
+    X2 = 65535;
+    M = (X1+X2)/2;
+    setDACValues(0, X1);
+    snooze(100);
+    while ( X1 < (X2-1) )
+    {
+        M = (X1+X2)/2;
+        setDACValues(0, M);
+        snooze(200);
+        if (m_I2 <= 5.25)
+        {
+            X1 = M;
+        }
+        else
+        {
+            X2 = M;
+        }
+    }
+    m_calibrationHigh_2 = X1;
+    ui->lineEdit_LED2_high_final->setText(numStr.setNum(m_calibrationHigh_2));
+
+
+    setDACValues(m_calibrationLow_1, m_calibrationLow_2);
+
+    qApp->processEvents();
 }
 
-void MainWindow::findHighCalibration()
+void MainWindow::saveCalibration()
 {
+    QString response;
+    QString command;
+
+    command = QString("led_cal=0,%1,%2").arg(m_calibrationLow_1).arg(m_calibrationHigh_1);
+    m_serialBuffer.writeLine(command.toLocal8Bit().data());
+    response = m_serialBuffer.readString();
+
+    command = QString("led_cal=1,%1,%2").arg(m_calibrationLow_2).arg(m_calibrationHigh_2);
+    m_serialBuffer.writeLine(command.toLocal8Bit().data());
+    response = m_serialBuffer.readString();
 }
+
+
 
 
 

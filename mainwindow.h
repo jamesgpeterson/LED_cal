@@ -18,10 +18,11 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QMutex>
 #include "Settings.h"
 #include "SerialBuffer.h"
 
-#define VERSION_STRING "0.4"
+#define VERSION_STRING "0.5"
 
 
 namespace Ui
@@ -38,13 +39,20 @@ public:
     ~MainWindow();
 
 private:
-    void loadSettings();
-    void saveSettings();
+    void timerEvent(QTimerEvent *);
+    void errorMessage(QString msg);
+    bool yesNoMessage(QString msg);
+
+    bool checkFields();
+    bool establishConnectionToController();
+    bool getCurrentCalibrationValues();
+    bool checkScope();
+    bool findCalibration();
+
     void updateExposure();
     void updateCurrentAndVoltage();
     void updateDACValues();
     void setDACValues(int dac1, int dac2);
-    void findCalibration();
     void saveCalibration();
 
 public slots:
@@ -54,8 +62,14 @@ public slots:
 private:
     Ui::MainWindow *ui;
 
+    QString       m_operator;
+    QString       m_serialNumber;
+    QString       m_serialPortName;
+
     CSettings     m_settings;
     CSerialBuffer m_serialBuffer;
+    int           m_timerID;
+    QMutex        m_mutex;
 
     int           m_totalExposure;
     double        m_I1;

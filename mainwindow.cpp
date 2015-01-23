@@ -55,14 +55,20 @@ MainWindow::MainWindow(QWidget *parent) :
     //
     // initialize the windows with the last setting
     //
-    ui->lineEdit_logFile->setText(m_settings.m_logFile);
-    ui->lineEdit_serialPort->setText(m_settings.m_commPort);
+    ui->lineEdit_logFile->setText(m_settings.m_reportFile);
+    m_serialPortName = m_settings.m_serialPort;
+    ui->lineEdit_serialPort->setText(m_serialPortName);
 
     //
     // initial DAC values
     //
     m_dac1 = 0;
     m_dac2 = 0;
+
+    //
+    // Start timer
+    //
+    m_timerID = startTimer(3000);
 }
 
 
@@ -78,14 +84,68 @@ MainWindow::MainWindow(QWidget *parent) :
 */
 MainWindow::~MainWindow()
 {
+    killTimer(m_timerID);
+
     //
     // Save the settings
     //
-    m_settings.m_logFile = ui->lineEdit_logFile->text();
-    m_settings.m_commPort = ui->lineEdit_serialPort->text();
+    m_settings.m_reportFile = ui->lineEdit_logFile->text();
+    m_settings.m_serialPort = ui->lineEdit_serialPort->text();
 
     delete ui;
 }
+
+void MainWindow::timerEvent(QTimerEvent *)
+{
+    //
+    // Lock the mutex
+    //
+    if (!m_mutex.tryLock())
+    {
+        return;
+    }
+
+    if (!m_serialBuffer.openPort(m_serialPortName))
+    {
+        m_mutex.unlock();
+        ui->label_status->setText("idle: No serial connection");
+        return;
+    }
+    //ui->label_status->setText("idle: serial connection opened");
+
+    if (m_serialBuffer.checkForEcho() == false)
+    {
+        m_mutex.unlock();
+        ui->label_status->setText("idle: serial connection opened, no communication with controller");
+        return;
+    }
+    ui->label_status->setText("idle: communication with controller established");
+
+
+    //
+    // Unlock the mutex
+    //
+    m_mutex.unlock();
+}
+
+void MainWindow::errorMessage(QString msg)
+{
+    QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
+    QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+    return;
+}
+
+bool MainWindow::yesNoMessage(QString msg)
+{
+    QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
+    if (QMessageBox::warning(this, title, msg, QMessageBox::Yes|QMessageBox::No) == QMessageBox::Yes)
+    {
+        return(true);
+    }
+    return(false);
+}
+
+
 
 
 /*!
@@ -123,73 +183,118 @@ void MainWindow::startCalibration()
 {
     ui->pushButton->setEnabled(false);
 
+    m_mutex.lock();
+
+    if (    !checkFields()
+         || !establishConnectionToController()
+         || !getCurrentCalibrationValues()
+         || !checkScope() )
+    {
+        ui->pushButton->setEnabled(true);
+        m_mutex.unlock();
+        return;
+    }
+
+    if (findCalibration())
+    {
+        saveCalibration();
+    }
+
+    m_serialBuffer.writeLine("led=0");
+
+    m_mutex.unlock();
+    ui->pushButton->setEnabled(true);
+}
+
+
+/*!
+ * @brief
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
+bool MainWindow::checkFields()
+{
     //
     // Check that the operator field is filled in.
     //
-    if (ui->lineEdit_operator->text().isEmpty())
+    m_operator = ui->lineEdit_operator->text();
+    if (m_operator.isEmpty())
     {
-        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
-        QString msg = "An operator name must be entered.";
-        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        errorMessage("An operator name must be entered.");
         ui->lineEdit_operator->setFocus();
-        ui->pushButton->setEnabled(true);
-        return;
+        return(false);
     }
 
     //
     // Check that the serial number field was filled in.
     //
-    if (ui->lineEdit_serialNumber->text().isEmpty())
+    m_serialNumber = ui->lineEdit_serialNumber->text();
+    if (m_serialNumber.isEmpty())
     {
-        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
-        QString msg = "A serial number name must be entered.";
-        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        errorMessage("A serial number name must be entered.");
         ui->lineEdit_serialNumber->setFocus();
-        ui->pushButton->setEnabled(true);
-        return;
+        return(false);
     }
 
     //
     // Check that the COM port field was filled in.
     //
-    QString portName = ui->lineEdit_serialPort->text();
-    if (portName.isEmpty())
+    m_serialPortName = ui->lineEdit_serialPort->text();
+    if (m_serialPortName.isEmpty())
     {
-        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
-        QString msg = "A serial port must be specified/selected.";
-        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+        errorMessage("A serial port must be specified/selected.");
         ui->lineEdit_serialPort->setFocus();
-        ui->pushButton->setEnabled(true);
-        return;
+        return(false);
     }
 
+    return(true);
+
+}
+
+
+/*!
+ * @brief
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
+bool MainWindow::establishConnectionToController()
+{
     //
     // Open the COM port
     //
-    if (!m_serialBuffer.openPort(portName))
+    ui->label_status->setText("Opening Serial Port...");
+    if (!m_serialBuffer.openPort(m_serialPortName))
     {
-        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
         QString msg = "The specified serial port could not be opened.";
-        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
-        ui->pushButton->setEnabled(true);
-        return;
+        errorMessage(msg);
+        return(false);
     }
 
     //
     // Check that the controller is running
     //
+    ui->label_status->setText("Checking communication with controller...");
     if (m_serialBuffer.checkForEcho() == false)
     {
-        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
         QString msg = "Communication with the controller could not be established.\n\nPort opend successfully.\nCommands are not echoed.";
-        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
-        ui->pushButton->setEnabled(true);
-        return;
+        errorMessage(msg);
+        return(false);
     }
 
     //
     // Disable excessive echoing of commands
     //
+    ui->label_status->setText("Initializing controller settings...");
     m_serialBuffer.writeLine("disable_events=1");
     m_serialBuffer.readString();
 #if 0
@@ -199,15 +304,17 @@ void MainWindow::startCalibration()
     m_serialBuffer.readString();
 #endif
 
-
     //
     // Check version of the firmware
     //
+    ui->label_status->setText("Checking firmware version...");
     int i;
     m_serialBuffer.writeLine("version");
     QString ver_FPGA = m_serialBuffer.readString();
     i = ver_FPGA.indexOf("FPGA: ");
     ver_FPGA.remove(0, i+6);
+    i = ver_FPGA.indexOf("\r\n");
+    ver_FPGA.truncate(i);
 
     QString ver_ARM  = m_serialBuffer.readString();
     i = ver_ARM.indexOf("ARM: ");
@@ -226,13 +333,39 @@ void MainWindow::startCalibration()
     ui->lineEdit_ver_FPGA->setText(ver_FPGA);
     qApp->processEvents();
 
-    //
-    // Get the current calibration values
-    //
+    // jgp - the versions should come from the ini file
+    // jgp - should give the option to continue
+    if (   (ver_ARM != "2.1.2255")
+           || (ver_FPGA != "2.1.2255")
+           || (ver_DSP != "2.02") )
+    {
+        if (!yesNoMessage("Controller version does not match expected.\nContinue?"))
+        {
+            return(false);
+        }
+    }
+
+    return(true);
+}
+
+/*!
+ * @brief
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
+bool MainWindow::getCurrentCalibrationValues()
+{
+    ui->label_status->setText("Fetching current LED calibration values...");
     m_serialBuffer.writeLine("led_cal");
     QString calString = m_serialBuffer.readString();
     QString tmpString;
 
+    int i;
     i = calString.indexOf("low=");
     calString.remove(0, i+4);
     tmpString = calString;
@@ -272,57 +405,49 @@ void MainWindow::startCalibration()
     ui->lineEdit_LED2_high->setText(numberString);
     qApp->processEvents();
 
+    return(true);
+}
 
-    //
-    // Check that the scope is connected
-    //
-    m_serialBuffer.writeLine("disable_events=1");
+/*!
+ * @brief Check that the scope is connected
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
+bool MainWindow::checkScope()
+{
+    ui->label_status->setText("Checking for scope...");
     m_serialBuffer.writeLine("em_style=1");
+    m_serialBuffer.readString();
     m_serialBuffer.writeLine("em=-1");
     QString em_string = m_serialBuffer.readString();
     if (em_string.isEmpty())
     {
-        QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
         QString msg = "Scope not detected.\n\nEnsure that the scope is connected and installed in the calibration fixture.";
-        QMessageBox::warning(this, title, msg, QMessageBox::Ok);
-        ui->lineEdit_serialNumber->setFocus();
-        ui->pushButton->setEnabled(true);
-        return;
+        errorMessage(msg);
+        return(false);
     }
     m_serialBuffer.writeLine("em_style=0");
 
-    //
-    // Update the current exposure
-    //
-    updateExposure();
-
-    //
-    // Update the current and voltage
-    //
-    updateCurrentAndVoltage();
-    updateDACValues();
-
-    //
-    // Find the new calibration values
-    //
-    findCalibration();
-
-    //
-    // Set the LEDs to 0
-    //
-    m_serialBuffer.writeLine("em_style=1");
-
-    //
-    // Save the calibration
-    //
-    saveCalibration();
-
-
-
-    ui->pushButton->setEnabled(true);
+    return(true);
 }
 
 
+
+/*!
+ * @brief
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
 void MainWindow::updateExposure()
 {
     m_serialBuffer.writeLine("em=-1");
@@ -394,6 +519,16 @@ void MainWindow::updateExposure()
     qApp->processEvents();
 }
 
+/*!
+ * @brief
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
 void MainWindow::updateCurrentAndVoltage()
 {
     m_serialBuffer.writeLine("ledvi");
@@ -432,6 +567,16 @@ void MainWindow::updateCurrentAndVoltage()
     qApp->processEvents();
 }
 
+/*!
+ * @brief
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
 void MainWindow::updateDACValues()
 {
     m_serialBuffer.writeLine("led_dac");
@@ -457,36 +602,19 @@ void MainWindow::updateDACValues()
     qApp->processEvents();
 }
 
+
+/*!
+ * @brief
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
 void MainWindow::setDACValues(int dac1, int dac2)
 {
-    //
-    // Jump by no more than 100 to give the power regulator a break
-    //
-#if 0
-    int delta1 = dac1 - m_dac1;
-    int delta2 = dac2 - m_dac2;
-    int x1 = m_dac1;
-    int x2 = m_dac2;
-    const int c_maxDelta = 1000;
-    while ( (delta1 != 0) || (delta2 != 0) )
-    {
-        //int d1 = (delta1 > c_maxDelta) ? c_maxDelta : ((delta1 < -c_maxDelta) ? -c_maxDelta : delta1);
-        //int d2 = (delta2 > c_maxDelta) ? c_maxDelta : ((delta2 < -c_maxDelta) ? -c_maxDelta : delta2);
-        int d1 = (delta1 > c_maxDelta) ? c_maxDelta : delta1;
-        int d2 = (delta2 > c_maxDelta) ? c_maxDelta : delta2;
-
-        x1 += d1;
-        x2 += d2;
-        delta1 -= d1;
-        delta2 -= d2;
-        QString command = QString("led_dac=%1,%2").arg(x1).arg(x1);
-        m_serialBuffer.writeLine(command.toLocal8Bit().data());
-        updateDACValues();
-        updateCurrentAndVoltage();
-        updateExposure();
-        //snooze(1);
-    }
- #endif
     QString command = QString("led_dac=%1,%2").arg(dac1).arg(dac2);
     m_serialBuffer.writeLine(command.toLocal8Bit().data());
     m_serialBuffer.readString();
@@ -498,11 +626,20 @@ void MainWindow::setDACValues(int dac1, int dac2)
 
     m_dac1 = dac1;
     m_dac2 = dac2;
-
 }
 
 
-void MainWindow::findCalibration()
+/*!
+ * @brief
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
+bool MainWindow::findCalibration()
 {
     ui->lineEdit_LED1_low_final->setText("");
     ui->lineEdit_LED2_low_final->setText("");
@@ -602,8 +739,19 @@ void MainWindow::findCalibration()
     setDACValues(m_calibrationLow_1, m_calibrationLow_2);
 
     qApp->processEvents();
+    return(true);
 }
 
+/*!
+ * @brief
+ *
+ * @param[in] none
+ * @param[out] none
+ * @return none
+ *
+ * @author J. Peterson
+ * @date 01/23/2015
+*/
 void MainWindow::saveCalibration()
 {
     QString response;

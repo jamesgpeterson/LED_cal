@@ -95,32 +95,79 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+
 void MainWindow::timerEvent(QTimerEvent *)
 {
     //
-    // Lock the mutex
+    // Try to lock the mutex.
+    // If we can't get it it means that a calibration is in progress.
     //
     if (!m_mutex.tryLock())
     {
         return;
     }
 
+    //
+    // Try to open the serial port
+    //
     if (!m_serialBuffer.openPort(m_serialPortName))
     {
         m_mutex.unlock();
+        clearInfoFields();
         ui->label_status->setText("idle: No serial connection");
         return;
     }
-    //ui->label_status->setText("idle: serial connection opened");
 
+    //
+    // See if the controller is running
+    //
     if (m_serialBuffer.checkForEcho() == false)
     {
         m_mutex.unlock();
+        clearInfoFields();
         ui->label_status->setText("idle: serial connection opened, no communication with controller");
         return;
     }
-    ui->label_status->setText("idle: communication with controller established");
 
+    //
+    // Turn off the event echoing
+    //
+    if (    (!m_serialBuffer.writeLine("disable_events=1"))
+         || (!m_serialBuffer.writeLine("em_style=0")) )
+    {
+        m_mutex.unlock();
+        clearInfoFields();
+        ui->label_status->setText("idle: communication with controller established, but no response to commands.");
+        return;
+    }
+    m_serialBuffer.readString();
+
+    //
+    // Get the firmware version
+    //
+    getFirmwareVersion();
+
+    //
+    // Get the current calibration values
+    //
+    getCurrentCalibrationValues();
+
+    //
+    // Read the DAC data
+    //
+    getCurrentAndVoltage();
+
+    //
+    // Read the exposure data
+    //
+    if (!getExposure())
+    {
+        ui->label_status->setText("idle: communication with controller established, no scope detected");
+    }
+    else
+    {
+        ui->label_status->setText("idle: communication with controller established, scope detected");
+    }
 
     //
     // Unlock the mutex
@@ -360,49 +407,72 @@ bool MainWindow::establishConnectionToController()
 */
 bool MainWindow::getCurrentCalibrationValues()
 {
-    ui->label_status->setText("Fetching current LED calibration values...");
     m_serialBuffer.writeLine("led_cal");
     QString calString = m_serialBuffer.readString();
     QString tmpString;
+    QString numberString;
 
     int i;
     i = calString.indexOf("low=");
-    calString.remove(0, i+4);
-    tmpString = calString;
-    i = tmpString.indexOf(" ");
-    tmpString.truncate(i);
-    int lowCal1 = tmpString.toInt();
+    if (i >= 0)
+    {
+        calString.remove(0, i+4);
+        tmpString = calString;
+        i = tmpString.indexOf(" ");
+        if (i >= 0)
+        {
+            tmpString.truncate(i);
+            int lowCal1 = tmpString.toInt();
+            numberString.setNum(lowCal1);
+            ui->lineEdit_LED1_low->setText(numberString);
+        }
+    }
 
     i = calString.indexOf("high=");
-    calString.remove(0, i+5);
-    tmpString = calString;
-    i = tmpString.indexOf(")");
-    tmpString.truncate(i);
-    int highCal1 = tmpString.toInt();
+    if (i >= 0)
+    {
+        calString.remove(0, i+5);
+        tmpString = calString;
+        i = tmpString.indexOf(")");
+        if (i >= 0)
+        {
+            tmpString.truncate(i);
+            int highCal1 = tmpString.toInt();
+            numberString.setNum(highCal1);
+            ui->lineEdit_LED1_high->setText(numberString);
+        }
+    }
 
     i = calString.indexOf("low=");
-    calString.remove(0, i+4);
-    tmpString = calString;
-    i = tmpString.indexOf(" ");
-    tmpString.truncate(i);
-    int lowCal2 = tmpString.toInt();
+    if (i >= 0)
+    {
+        calString.remove(0, i+4);
+        tmpString = calString;
+        i = tmpString.indexOf(" ");
+        if (i >= 0)
+        {
+            tmpString.truncate(i);
+            int lowCal2 = tmpString.toInt();
+            numberString.setNum(lowCal2);
+            ui->lineEdit_LED2_low->setText(numberString);
+        }
+    }
 
     i = calString.indexOf("high=");
-    calString.remove(0, i+5);
-    tmpString = calString;
-    i = tmpString.indexOf(")");
-    tmpString.truncate(i);
-    int highCal2 = tmpString.toInt();
+    if (i >= 0)
+    {
+        calString.remove(0, i+5);
+        tmpString = calString;
+        if (i >= 0)
+        {
+            i = tmpString.indexOf(")");
+            tmpString.truncate(i);
+            int highCal2 = tmpString.toInt();
+            numberString.setNum(highCal2);
+            ui->lineEdit_LED2_high->setText(numberString);
+        }
+    }
 
-    QString numberString;
-    numberString.setNum(lowCal1);
-    ui->lineEdit_LED1_low->setText(numberString);
-    numberString.setNum(lowCal2);
-    ui->lineEdit_LED2_low->setText(numberString);
-    numberString.setNum(highCal1);
-    ui->lineEdit_LED1_high->setText(numberString);
-    numberString.setNum(highCal2);
-    ui->lineEdit_LED2_high->setText(numberString);
     qApp->processEvents();
 
     return(true);
@@ -448,75 +518,133 @@ bool MainWindow::checkScope()
  * @author J. Peterson
  * @date 01/23/2015
 */
-void MainWindow::updateExposure()
+bool MainWindow::getExposure()
 {
-    m_serialBuffer.writeLine("em=-1");
+    if (!m_serialBuffer.writeLine("em=-1"))
+    {
+        return(false);
+    }
+
     int zones[25];
     for (int i=0; i<25; i++)
     {
         zones[i] = -1;
     }
 
+    //
     // Dump the first line
+    //
     m_serialBuffer.readString();
+
+    //
+    // Read the 25 fields (five rows of five values)
+    //
+    bool sawError = false;
     for (int i=0; i<5; i++)
     {
         QString response = m_serialBuffer.readString();
         QStringList list = response.split(QRegExp("\\W+"), QString::SkipEmptyParts);
         if (list.size() != 5)
         {
-            QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
-            QString msg = "Unexpected response:\n";
-            msg.append(response);
-            QMessageBox::warning(this, title, msg, QMessageBox::Ok);
-            ui->lineEdit_serialNumber->setFocus();
-            return;
+            //QString title = QFileInfo( QCoreApplication::applicationFilePath() ).fileName();
+            //QString msg = "Unexpected response:\n";
+            //msg.append(response);
+            //QMessageBox::warning(this, title, msg, QMessageBox::Ok);
+            return(false);
         }
         for (int j=0; j<list.size(); j++)
         {
-            zones[i*5+j] = list[j].toInt();
+            bool b;
+            zones[i*5+j] = list[j].toInt(&b);
+            if (!b)
+            {
+                sawError = true;
+                break;
+            }
+        }
+        if (sawError)
+        {
+            break;
         }
     }
 
-    int z = 0;
-    QString numStr;
-    ui->lineEdit_em_11->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_12->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_13->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_14->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_15->setText(numStr.setNum(zones[z++]));
-
-    ui->lineEdit_em_21->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_22->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_23->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_24->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_25->setText(numStr.setNum(zones[z++]));
-
-    ui->lineEdit_em_31->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_32->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_33->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_34->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_35->setText(numStr.setNum(zones[z++]));
-
-    ui->lineEdit_em_41->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_42->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_43->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_44->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_45->setText(numStr.setNum(zones[z++]));
-
-    ui->lineEdit_em_51->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_52->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_53->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_54->setText(numStr.setNum(zones[z++]));
-    ui->lineEdit_em_55->setText(numStr.setNum(zones[z++]));
-
-    m_totalExposure = 0;
-    for (int i=0; i<25; i++)
+    if (!sawError)
     {
-        m_totalExposure += zones[i];
+        int z = 0;
+        QString numStr;
+        ui->lineEdit_em_11->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_12->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_13->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_14->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_15->setText(numStr.setNum(zones[z++]));
+
+        ui->lineEdit_em_21->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_22->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_23->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_24->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_25->setText(numStr.setNum(zones[z++]));
+
+        ui->lineEdit_em_31->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_32->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_33->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_34->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_35->setText(numStr.setNum(zones[z++]));
+
+        ui->lineEdit_em_41->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_42->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_43->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_44->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_45->setText(numStr.setNum(zones[z++]));
+
+        ui->lineEdit_em_51->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_52->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_53->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_54->setText(numStr.setNum(zones[z++]));
+        ui->lineEdit_em_55->setText(numStr.setNum(zones[z++]));
+
+        m_totalExposure = 0;
+        for (int i=0; i<25; i++)
+        {
+            m_totalExposure += zones[i];
+        }
+    }
+    else
+    {
+        ui->lineEdit_em_11->clear();
+        ui->lineEdit_em_12->clear();
+        ui->lineEdit_em_13->clear();
+        ui->lineEdit_em_14->clear();
+        ui->lineEdit_em_15->clear();
+
+        ui->lineEdit_em_21->clear();
+        ui->lineEdit_em_22->clear();
+        ui->lineEdit_em_23->clear();
+        ui->lineEdit_em_24->clear();
+        ui->lineEdit_em_25->clear();
+
+        ui->lineEdit_em_31->clear();
+        ui->lineEdit_em_32->clear();
+        ui->lineEdit_em_33->clear();
+        ui->lineEdit_em_34->clear();
+        ui->lineEdit_em_35->clear();
+
+        ui->lineEdit_em_41->clear();
+        ui->lineEdit_em_42->clear();
+        ui->lineEdit_em_43->clear();
+        ui->lineEdit_em_44->clear();
+        ui->lineEdit_em_45->clear();
+
+        ui->lineEdit_em_51->clear();
+        ui->lineEdit_em_52->clear();
+        ui->lineEdit_em_53->clear();
+        ui->lineEdit_em_54->clear();
+        ui->lineEdit_em_55->clear();
+
+        m_totalExposure = 0;
     }
 
     qApp->processEvents();
+    return(!sawError);
 }
 
 /*!
@@ -529,42 +657,132 @@ void MainWindow::updateExposure()
  * @author J. Peterson
  * @date 01/23/2015
 */
-void MainWindow::updateCurrentAndVoltage()
+bool MainWindow::getCurrentAndVoltage()
 {
-    m_serialBuffer.writeLine("ledvi");
+    bool sawError = false;
+
+    if (!m_serialBuffer.writeLine("ledvi"))
+    {
+        sawError = true;
+    }
     QString response = m_serialBuffer.readString();
-    double V1, V2, index;
+    double index;
     QString tmpStr;
 
+    //
+    // V1
+    //
     tmpStr = response;
     index = tmpStr.indexOf("V1:");
-    tmpStr.remove(0, index+3);
-    tmpStr.truncate(tmpStr.indexOf(","));
-    V1 = tmpStr.toDouble();
+    if (index < 0)
+    {
+        sawError = true;
+    }
+    else
+    {
+        tmpStr.remove(0, index+3);
+        index = tmpStr.indexOf(",");
+        if (index < 0)
+        {
+            sawError = true;
+        }
+        else
+        {
+            tmpStr.truncate(index);
+            m_V1 = tmpStr.toDouble();
+        }
+    }
 
+    //
+    // I1
+    //
     tmpStr = response;
     index = tmpStr.indexOf("I1:");
-    tmpStr.remove(0, index+3);
-    tmpStr.truncate(tmpStr.indexOf(","));
-    m_I1 = tmpStr.toDouble();
+    if (index < 0)
+    {
+        sawError = true;
+    }
+    else
+    {
+        tmpStr.remove(0, index+3);
+        index = tmpStr.indexOf(",");
+        if (index < 0)
+        {
+            sawError = true;
+        }
+        else
+        {
+            tmpStr.truncate(index);
+            m_I1 = tmpStr.toDouble();
+        }
+    }
 
+    //
+    // V2
+    //
     tmpStr = response;
     index = tmpStr.indexOf("V2:");
-    tmpStr.remove(0, index+3);
-    tmpStr.truncate(tmpStr.indexOf(","));
-    V2 = tmpStr.toDouble();
+    if (index < 0)
+    {
+        sawError = true;
+    }
+    else
+    {
+        tmpStr.remove(0, index+3);
+        index = tmpStr.indexOf(",");
+        if (index < 0)
+        {
+            sawError = true;
+        }
+        else
+        {
+            tmpStr.truncate(index);
+            m_V2 = tmpStr.toDouble();
+        }
+    }
 
+    //
+    // I2
+    //
     tmpStr = response;
     index = tmpStr.indexOf("I2:");
-    tmpStr.remove(0, index+3);
-    m_I2 = tmpStr.toDouble();
+    if (index < 0)
+    {
+        sawError = true;
+    }
+    else
+    {
+        tmpStr.remove(0, index+3);
+        m_I2 = tmpStr.toDouble();
+    }
 
-    QString numStr;
-    ui->lineEdit_volts1->setText(numStr.setNum(V1));
-    ui->lineEdit_volts2->setText(numStr.setNum(V2));
-    ui->lineEdit_amps1->setText(numStr.setNum(m_I1));
-    ui->lineEdit_amps2->setText(numStr.setNum(m_I2));
+    if (sawError)
+    {
+        m_V1 = m_V2 = m_I1 = m_I2 = 0.0;
+        ui->lineEdit_amps1->clear();
+        ui->lineEdit_amps2->clear();
+        ui->lineEdit_volts1->clear();
+        ui->lineEdit_volts2->clear();
+    }
+    else
+    {
+        QString numStr;
+        if ( (m_V1 > -0.005) && (m_V1 < 0.0) )
+        {
+            m_V1 = 0.0;
+        }
+        if ( (m_V2 > -0.005) && (m_V2 < 0.0) )
+        {
+            m_V2 = 0.0;
+        }
+        ui->lineEdit_volts1->setText(numStr.setNum(m_V1, 'f', 2));
+        ui->lineEdit_volts2->setText(numStr.setNum(m_V2, 'f', 2));
+        ui->lineEdit_amps1->setText(numStr.setNum(m_I1, 'f', 3));
+        ui->lineEdit_amps2->setText(numStr.setNum(m_I2, 'f', 3));
+    }
     qApp->processEvents();
+
+    return(true);
 }
 
 /*!
@@ -621,8 +839,8 @@ void MainWindow::setDACValues(int dac1, int dac2)
 
     snooze(100);
     updateDACValues();
-    updateCurrentAndVoltage();
-    updateExposure();
+    getCurrentAndVoltage();
+    getExposure();
 
     m_dac1 = dac1;
     m_dac2 = dac2;
@@ -765,6 +983,80 @@ void MainWindow::saveCalibration()
     m_serialBuffer.writeLine(command.toLocal8Bit().data());
     response = m_serialBuffer.readString();
 }
+
+
+
+bool MainWindow::getFirmwareVersion()
+{
+    int i;
+
+    //
+    // Issue the command and check the return
+    //
+    if (!m_serialBuffer.writeLine("version"))
+    {
+        return(false);
+    }
+
+    QString ver_FPGA = m_serialBuffer.readString();
+    i = ver_FPGA.indexOf("FPGA: ");
+    if (i >= 0)
+    {
+        ver_FPGA.remove(0, i+6);
+        i = ver_FPGA.indexOf("\r\n");
+        if (i >= 0)
+        {
+            ver_FPGA.truncate(i);
+        }
+        ui->lineEdit_ver_FPGA->setText(ver_FPGA);
+    }
+
+    QString ver_ARM  = m_serialBuffer.readString();
+    i = ver_ARM.indexOf("ARM: ");
+    if (i >= 0)
+    {
+        ver_ARM.remove(0, i+5);
+        i = ver_ARM.indexOf(" ");
+        if (i >= 0)
+        {
+            ver_ARM.truncate(i);
+        }
+        ui->lineEdit_ver_ARM->setText(ver_ARM);
+    }
+
+    QString ver_DSP  = m_serialBuffer.readString();
+    i = ver_DSP.indexOf("DSP: ");
+    if (i >= 0)
+    {
+        ver_DSP.remove(0, i+5);
+        i = ver_DSP.indexOf(" ");
+        if (i >= 0)
+        {
+            ver_DSP.truncate(i);
+        }
+        ui->lineEdit_ver_DSP->setText(ver_DSP);
+    }
+
+    qApp->processEvents();
+    return(true);
+}
+
+void MainWindow::clearInfoFields()
+{
+    ui->lineEdit_ver_ARM->clear();
+    ui->lineEdit_ver_DSP->clear();
+    ui->lineEdit_ver_FPGA->clear();
+    ui->lineEdit_LED1_high->clear();
+    ui->lineEdit_LED1_low->clear();
+    ui->lineEdit_LED2_high->clear();
+    ui->lineEdit_LED2_low->clear();
+    ui->lineEdit_amps1->clear();
+    ui->lineEdit_amps2->clear();
+    ui->lineEdit_volts1->clear();
+    ui->lineEdit_volts2->clear();
+}
+
+
 
 
 

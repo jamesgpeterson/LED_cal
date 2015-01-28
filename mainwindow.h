@@ -22,7 +22,7 @@
 #include "Settings.h"
 #include "SerialBuffer.h"
 
-#define VERSION_STRING "0.5"
+#define VERSION_STRING "0.6"
 
 
 namespace Ui
@@ -44,13 +44,17 @@ private:
     bool yesNoMessage(QString msg);
 
     bool checkFields();
-    bool establishConnectionToController();
+    void clearInfoFields();
+
+    bool getFirmwareVersion();
     bool getCurrentCalibrationValues();
+    bool getCurrentAndVoltage();
+    bool getExposure();
+
+    bool establishConnectionToController();
     bool checkScope();
     bool findCalibration();
 
-    void updateExposure();
-    void updateCurrentAndVoltage();
     void updateDACValues();
     void setDACValues(int dac1, int dac2);
     void saveCalibration();
@@ -74,6 +78,8 @@ private:
     int           m_totalExposure;
     double        m_I1;
     double        m_I2;
+    double        m_V1;
+    double        m_V2;
     int           m_calibrationLow_1;
     int           m_calibrationHigh_1;
     int           m_calibrationLow_2;

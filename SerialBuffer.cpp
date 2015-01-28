@@ -169,8 +169,6 @@ bool CSerialBuffer::writeLine(const char *command)
     // Flush the incoming data.
     //
     flush();
-    //snooze(1);
-    // m_serialPort->clear(QSerialPort::Input);
 
     //
     // Write the command.
@@ -197,12 +195,12 @@ bool CSerialBuffer::writeLine(const char *command)
         readLine(buffer, commandLength+100, m_timeoutMS);
         if (strncmp(command, buffer, commandLength) != 0)
         {
-            QString title = "Debug";
-            QString msg = "Unexpected response:\n";
-            msg.append(buffer);
-            msg.append("\nexpected:\n");
-            msg.append(command);
-            QMessageBox::warning(NULL, title, msg, QMessageBox::Ok);
+            //QString title = "Debug";
+            //QString msg = "Unexpected response:\n";
+            //msg.append(buffer);
+            //msg.append("\nexpected:\n");
+            //msg.append(command);
+            //QMessageBox::warning(NULL, title, msg, QMessageBox::Ok);
 
             delete buffer;
             return(false);

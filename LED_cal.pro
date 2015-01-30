@@ -18,7 +18,8 @@ SOURCES += main.cpp\
     Settings.cpp \
     SerialPortDialog.cpp \
     SerialBuffer.cpp \
-    Snooze.cpp
+    Snooze.cpp \
+    Monitors.cpp
 
 HEADERS  += mainwindow.h \
     Settings.h \

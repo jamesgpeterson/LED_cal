@@ -45,9 +45,11 @@ private:
 
     bool checkFields();
     void clearInfoFields();
+    void clearExposureAndDacFields();
 
     bool getFirmwareVersion();
     bool getCurrentCalibrationValues();
+    bool getDacValues();
     bool getCurrentAndVoltage();
     bool getExposure();
 

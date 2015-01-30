@@ -31,10 +31,10 @@ const char *c_SerialPort_key      = "SerialPort";
 const char *c_SerialPort_default  = "";
 
 const char *c_VersionARM_key      = "version/ARM";
-const char *c_VersionARM_default  = "2.1.2255";
+const char *c_VersionARM_default  = "2.1.2250";
 
 const char *c_VersionDSP_key      = "version/DSP";
-const char *c_VersionDSP_default  = "2.1.2255";
+const char *c_VersionDSP_default  = "2.1.2250";
 
 const char *c_VersionFPGA_key     = "version/FPGA";
 const char *c_VersionFPGA_default = "2.02";
@@ -88,6 +88,9 @@ CSettings::~CSettings()
 {
     m_qSettings->setValue(c_ReportFile_key, m_reportFile);
     m_qSettings->setValue(c_SerialPort_key, m_serialPort);
+    m_qSettings->setValue(c_VersionARM_key, m_versionARM);
+    m_qSettings->setValue(c_VersionDSP_key, m_versionDSP);
+    m_qSettings->setValue(c_VersionFPGA_key, m_versionFPGA);
 
     m_qSettings->sync();
 }

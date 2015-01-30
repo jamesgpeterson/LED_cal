@@ -115,6 +115,7 @@ void MainWindow::timerEvent(QTimerEvent *)
         m_mutex.unlock();
         clearInfoFields();
         ui->label_status->setText("idle: No serial connection");
+        qApp->processEvents();
         return;
     }
 
@@ -126,6 +127,7 @@ void MainWindow::timerEvent(QTimerEvent *)
         m_mutex.unlock();
         clearInfoFields();
         ui->label_status->setText("idle: serial connection opened, no communication with controller");
+        qApp->processEvents();
         return;
     }
 
@@ -138,6 +140,7 @@ void MainWindow::timerEvent(QTimerEvent *)
         m_mutex.unlock();
         clearInfoFields();
         ui->label_status->setText("idle: communication with controller established, but no response to commands.");
+        qApp->processEvents();
         return;
     }
     m_serialBuffer.readString();
@@ -153,7 +156,7 @@ void MainWindow::timerEvent(QTimerEvent *)
     getCurrentCalibrationValues();
 
     //
-    // Read the DAC data
+    // Read the Current and Voltage data
     //
     getCurrentAndVoltage();
 
@@ -163,11 +166,19 @@ void MainWindow::timerEvent(QTimerEvent *)
     if (!getExposure())
     {
         ui->label_status->setText("idle: communication with controller established, no scope detected");
+        clearExposureAndDacFields();
+        qApp->processEvents();
     }
     else
     {
         ui->label_status->setText("idle: communication with controller established, scope detected");
+        //
+        // Read the LED DAC values
+        //
+        getDacValues();
+        qApp->processEvents();
     }
+
 
     //
     // Unlock the mutex
@@ -382,9 +393,9 @@ bool MainWindow::establishConnectionToController()
 
     // jgp - the versions should come from the ini file
     // jgp - should give the option to continue
-    if (   (ver_ARM != "2.1.2255")
-           || (ver_FPGA != "2.1.2255")
-           || (ver_DSP != "2.02") )
+    if (   (ver_ARM != m_settings.m_versionARM)
+           || (ver_DSP != m_settings.m_versionDSP)
+           || (ver_FPGA != m_settings.m_versionFPGA) )
     {
         if (!yesNoMessage("Controller version does not match expected.\nContinue?"))
         {
@@ -1041,6 +1052,66 @@ bool MainWindow::getFirmwareVersion()
     return(true);
 }
 
+bool MainWindow::getDacValues()
+{
+    bool sawError = false;
+    double X1, X2;
+
+    if (m_serialBuffer.writeLine("led_dac"))
+    {
+        QString response = m_serialBuffer.readString();
+        int index;
+        QString tmpStr;
+
+        bool conversionWasOk = false;
+        tmpStr = response;
+        index = tmpStr.indexOf("led1=");
+        if (index >= 0)
+        {
+            tmpStr.remove(0, index+5);
+            index = tmpStr.indexOf(",");
+            if (index >= 0)
+            {
+                tmpStr.truncate(index);
+                X1 = tmpStr.toDouble(&conversionWasOk);
+            }
+        }
+        if (!conversionWasOk)
+        {
+            sawError = true;
+        }
+
+        conversionWasOk = false;
+        tmpStr = response;
+        index = tmpStr.indexOf("led2=");
+        if (index >= 0)
+        {
+            tmpStr.remove(0, index+5);
+            X2 = tmpStr.toDouble(&conversionWasOk);
+        }
+        if (!conversionWasOk)
+        {
+            sawError = true;
+        }
+    }
+
+    if (sawError)
+    {
+        ui->lineEdit_dac1->setText("");
+        ui->lineEdit_dac2->setText("");
+    }
+    else
+    {
+        QString numStr;
+        ui->lineEdit_dac1->setText(numStr.setNum(X1));
+        ui->lineEdit_dac2->setText(numStr.setNum(X2));
+    }
+
+    qApp->processEvents();
+    return(!sawError);
+
+}
+
 void MainWindow::clearInfoFields()
 {
     ui->lineEdit_ver_ARM->clear();
@@ -1054,6 +1125,44 @@ void MainWindow::clearInfoFields()
     ui->lineEdit_amps2->clear();
     ui->lineEdit_volts1->clear();
     ui->lineEdit_volts2->clear();
+
+    clearExposureAndDacFields();
+}
+
+void MainWindow::clearExposureAndDacFields()
+{
+    ui->lineEdit_em_11->clear();
+    ui->lineEdit_em_12->clear();
+    ui->lineEdit_em_13->clear();
+    ui->lineEdit_em_14->clear();
+    ui->lineEdit_em_15->clear();
+
+    ui->lineEdit_em_21->clear();
+    ui->lineEdit_em_22->clear();
+    ui->lineEdit_em_23->clear();
+    ui->lineEdit_em_24->clear();
+    ui->lineEdit_em_25->clear();
+
+    ui->lineEdit_em_31->clear();
+    ui->lineEdit_em_32->clear();
+    ui->lineEdit_em_33->clear();
+    ui->lineEdit_em_34->clear();
+    ui->lineEdit_em_35->clear();
+
+    ui->lineEdit_em_41->clear();
+    ui->lineEdit_em_42->clear();
+    ui->lineEdit_em_43->clear();
+    ui->lineEdit_em_44->clear();
+    ui->lineEdit_em_45->clear();
+
+    ui->lineEdit_em_51->clear();
+    ui->lineEdit_em_52->clear();
+    ui->lineEdit_em_53->clear();
+    ui->lineEdit_em_54->clear();
+    ui->lineEdit_em_55->clear();
+
+    ui->lineEdit_dac1->clear();
+    ui->lineEdit_dac2->clear();
 }
 
 
